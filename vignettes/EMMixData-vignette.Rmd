@@ -1,0 +1,172 @@
+---
+title: "EMMixData Vignette"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{EMMixData-vignette}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  warning = FALSE,
+  message = FALSE,
+  comment = "#>"
+)
+```
+
+```{r setup}
+library(EMMixData)
+```
+
+Dépendances à installer et charger pour le bon fonctionnement du package :
+```{r dependencies}
+library(mclust)
+library(tidyverse)
+library(Rmixmod)
+library(FactoMineR)
+library(MBCbook)
+```
+
+# Fonctions du package 
+
+## Fonction de clustering 
+
+> em_clust()
+
+Cette fonction fait du clustering en appliquant l'algorithme EM sur des données mixtes (catégorielles et quantitatives). 
+
+#### E-step :
+Estimation des classes $\tilde{z}_{i}^{k}$ :  
+<div align="center">$E[\hat{z_{ik}} | x, \theta^{(q)}] = \frac{f_{k}(x_{i},\theta^{(q)}) p_{k}^{(q)}}{f_{x}(x_{i}, \theta^{(q))}} = t_{k}^{(q)}(x_{i})$</div>
+</br>
+Où : <div align="center">  $f_{k}(x_{i}, \theta^{(q)}) = f_{k}^{categ.}(x_{1}, \dots , x_{c}) \times f_{k}^{contin.}(x_{c+1}, \dots , x_{p})$</div>
+
+Et : <div align="center">  $f_{x}(x_{i}, \theta^{(q)}) = \sum_{k=1}^{K} p_{k} \times f_{k}^{categ.}(x_{1}, \dots , x_{c}) \times f_{k}^{contin.}(x_{c+1}, \dots , x_{p})$</div>
+</br>
+Avec la densité du groupe k des variables catégorielles : <div align="center">$f_{k}^{categ.}(x_{1}, \dots , x_{c}) = \prod_{j = 1}^{c} \prod_{h = 1}^{m_{j}} (\alpha_{k}^{jh(q)})^{x_{ij}^{h}}$ </div>  
+Et la densité du groupe k des variables quantitatives : <div align="center">$f_{k}^{contin.}(x_{c+1}, \dots , x_{p}) = \frac{1}{(2\pi)^{(p-c)/2} |\sum_{k}|^{1/2}} exp(-\frac{1}{2}(\tilde{x} - \mu_{k})^{t} \sum_{k}^{-1}(\tilde{x} - \mu_{k}))$</div>
+
+#### M-step :
+Maximisation de $\theta^{(q)}$:  
+* $p_{k}^{(q+1)} = \frac{n_{k}^{(q)}}{n}$ avec $n_{k} = \sum_{i=1}^{n}t_{k}^{(q)}(x_{i})]$  
+* $\\mu_{k}^{(q+1)} = \frac{1}{n^{(q)}} \sum_{i=1}^{n}t_{k}^{(q)}(x_{i}) x_{i}$  
+* $\sum_{k}^{(q+1)} = \frac{1}{n_{k}^{(q)}} \sum_{i=1}^{n}t_{k}^{(q)}(x_{i}) (x_{i} - \mu_{k})^{t} (x_{i} - \mu_{k})$  
+* $\alpha_{k}^{jh(q+1)} = \frac{1}{n_{k}} \sum_{i = 1}^{n} t_{k}^{(q)}(x_{i}) x_{ij}^{h}$  
+
+
+## Fonction de plot
+
+> plot_clust()
+
+Cette fonction affiche un graphique des individus colorés selon la classe prédite par l'algorithme EM. Nous utilisons une *Analyse Factorielle des Données Mixtes* pour réduire la dimension.
+
+# Exemple d'utilisation 
+
+## Données *heterodata* de Rmixmod
+```{r data, paged.print=TRUE}
+data(heterodata) 
+X <- heterodata
+head(X)
+```
+Testons le package sur le jeu de données *heterodata* du package Rmixmod. Ce jeu de données contient `r nrow(X)` observations et `r ncol(X)` variables, dont 2 quantitatives et 3 catégorielles à 2 modalités.
+
+### Réduction de dimension pour afficher les données "heterodata". 
+Utilisation de l'*Analyse Factorielle des Données Mixtes* pour réduire la dimension et afficher les données d'*heterodata*.
+```{r show data}
+res.famd <- FAMD(X, graph = F)
+plot(res.famd$ind$coord[,1], res.famd$ind$coord[,2], main = "Données heterodata")
+```
+
+## Clustering sur les données "heterodata"
+
+### Initialisation de l'agorithme EM via *Kmeans*
+Le code suivant est un exemple de clustering avec EM pour les données mixtes *heterodata*. Nous prenons pour le nombre de clusters K = 2 et K = 3.  
+L'initialisation de l'algorithme EM se fait avec Kmeans dans ce cas.
+```{r clustering with kmeans init, eval=FALSE}
+K <- c(2,3)
+plot.new()
+par(mfrow=c(1,1))
+for(k in K){
+  print(paste("K = ", k))
+  # clustering avec EM initialisation kmeans
+  res <- em_clust(X, K = k, nIter = 50, init = 'kmeans')
+  # Affichage des valeurs des critères ICL et BIC
+  print(paste("BIC :", res$BIC))
+  print(paste("ICL :", res$ICL))
+  # Affichage des résultats du clustering
+  plot_clust(X, labels = res$z)
+  # Affichage de la valeur de la vraissemblance sur toutes les itérations
+  plot(res$loglik[1:(res$iter - 1)], type='l', main = "Loglikelihood values over iterations", 
+       xlab = "Iterations", ylab = "Loglikelihood")
+}
+```
+
+Les critères BIC et ICL sont affichés, ainsi que la valeur de la vraissemblance et le résultat final du clustering pour un nombre de cluster K = 2 et K = 3 : 
+```{r clustering print kmeans init, paged.print=TRUE, echo = FALSE}
+K <- c(2,3)
+plot.new()
+par(mfrow=c(1,1))
+for(k in K){
+  print(paste("K = ", k))
+  res <- em_clust(X, K = k, nIter = 50, init = 'kmeans')
+  print(paste("BIC :", res$BIC))
+  print(paste("ICL :", res$ICL))
+  plot_clust(X, labels = res$z)
+  plot(res$loglik[1:(res$iter - 1)], type='l', main = "Loglikelihood values over iterations", 
+       xlab = "Iterations", ylab = "Loglikelihood")
+}
+```
+
+```{r regular plot kmeans, paged.print=TRUE}
+plot(X, col = res$z)
+
+```
+
+### Initialisation *aléatoire* de l'agorithme EM
+Le code suivant est un exemple de clustering avec EM pour les données mixtes *heterodata*. Nous prennons pour le nombre de clusters K = 2 et K = 3.  
+L'initialisation de l'algorithme EM est aléatoire dans ce cas.
+```{r clustering with random init, eval = FALSE}
+K <- c(2,3)
+plot.new()
+par(mfrow=c(1,1))
+for(k in K){
+  print(paste("K = ", k))
+  # clustering avec EM initialisation aléatoire
+  res <- em_clust(X, K = k, nIter = 20, init = 'random')
+  # Affichage des valeurs des critères ICL et BIC
+  print(paste("BIC :", res$BIC))
+  print(paste("ICL :", res$ICL))
+  # Affichage des résultats du clustering
+  plot_clust(X, labels = res$z)
+  # Affichage de la valeur de la vraissemblance sur toutes les itérations
+  plot(res$loglik[1:(res$iter - 1)], type='l', main = "Loglikelihood values over iterations", 
+       xlab = "Iterations", ylab = "Loglikelihood")
+}
+
+```
+
+Les critères BIC et ICL sont affichés ainsi que la valeur de la vraissemblance et le résultat final du clustering pour un nombre de cluster K = 2 et K = 3 :  
+```{r clustering print with random init, paged.print=TRUE, echo = FALSE}
+K <- c(2,3)
+plot.new()
+par(mfrow=c(1,1))
+for(k in K){
+  print(paste("K = ", k))
+  res <- em_clust(X, K = k, nIter = 20, init = 'random')
+  print(paste("BIC :", res$BIC))
+  print(paste("ICL :", res$ICL))
+  plot_clust(X, labels = res$z)
+  plot(res$loglik[1:(res$iter - 1)], type='l', main = "Loglikelihood values over iterations", 
+       xlab = "Iterations", ylab = "Loglikelihood")
+}
+
+```
+
+
+```{r regular plot random, paged.print=TRUE}
+plot(X, col = res$z)
+
+```
+

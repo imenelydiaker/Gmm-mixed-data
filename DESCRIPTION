@@ -1,0 +1,14 @@
+Package: EMMixData
+Type: Package
+Title: Clustering for Mixed Data using EM algorithm
+Version: 0.1.0
+Author: Mouad LARIBIA, Imene KERBOUA
+Maintainer: Mouad LARIBIA <mouad.laribia@univ-lyon2.fr>
+Description: Clustering for Mixed Data using EM algorithm (qualitatative and quantitative data)
+License: None
+Encoding: UTF-8
+RoxygenNote: 7.1.1
+Suggests: 
+    knitr,
+    rmarkdown
+VignetteBuilder: knitr
